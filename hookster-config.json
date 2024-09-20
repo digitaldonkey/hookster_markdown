@@ -1,0 +1,5 @@
+{
+  "namespace": "ai1ec",
+  "src": "../src/**/*.php"    ,
+  "dest": "../hooks-and-filters.md"
+}

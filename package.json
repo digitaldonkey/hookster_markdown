@@ -2,7 +2,11 @@
   "name": "hookster",
   "version": "1.0.0",
   "description": "Generates .json file mapping out all of the actions and filters for a WordPress theme or plugin.",
-  "namespace": "themeblvd",
+  "hookster_config": {
+    "namespace": "ai1ec",
+    "src": "../src/**/*.php"    ,
+    "dest": "../hooks-and-filters.md"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/themeblvd/hookster.git"
@@ -14,5 +18,8 @@
   },
   "scripts": {
     "build": "node build.js"
+  },
+  "dependencies": {
+    "json2md": "^2.0.1"
   }
 }

@@ -1,36 +1,69 @@
 const fs = require( 'fs' );
 const docblock = require( 'docblock' );
 const glob = require( 'glob-fs' )({ gitignore: false });
-const config = require( './package.json' );
+const config = require( './hookster-config.json' );
+const json2md = require("json2md")
 
 const namespace = config.namespace; // All hook names must start with this.
 
-const hooks = {
-    actions: [],
-    filters: []
-}
+const hooks = [];
 
 const docBlockInstance = new docblock({
     skipMarkdown: true
 });
 
-const files = glob.readdirSync( 'src/**/*.php' );
+const files = glob.readdirSync( config.src );
 
+// Output header
+const markdown = [];
+markdown.push({ h1: "Hooks and actions" });
+
+
+// Process Files
 files.forEach( function( file ) {
-
     let content = fs.readFileSync( file, 'utf8' );
-
     let result = docBlockInstance.parse( content, 'js' ); // The docblock package will only parse parameters with the JavaScript rules.
-
-    result.forEach( function( itemData ) {
-        addItem( file, itemData );
+    let isFirstInFile = true;
+    result.forEach( function( itemData, ind ) {
+        const item = addItem( file, itemData );
+        if (item) {
+            if (isFirstInFile) {
+                item.isFirstInFile = true;
+                isFirstInFile = false;
+            }
+            hooks.push(item)
+        }
     } );
 
 } );
 
-fs.writeFileSync( 'dist/actions.json', JSON.stringify( hooks.actions, null, 2 ), 'utf8' );
 
-fs.writeFileSync( 'dist/filters.json', JSON.stringify( hooks.filters, null, 2 ), 'utf8' );
+// Make Markdown
+// @see https://www.npmjs.com/package/json2md
+hooks.forEach(function (item){
+    if (item.isFirstInFile) {
+        markdown.push({ p: '**' + item.file + '**' });
+    }
+    markdown.push({
+        h2: item.name
+    });
+    markdown.push({ p: '**' + item.summary + '**' });
+    markdown.push({ p:  item.desc });
+
+    markdown.push( {
+        "code": {
+            language: "php"
+            , content: [item.raw + item.signature]
+        }
+    })
+    markdown.push({ p: '<small>Since: ' + item.since + '</small>'});
+
+});
+
+// Done
+fs.writeFileSync(config.dest, json2md(markdown), 'utf8' );
+console.log(json2md(markdown));
+
 
 /**
  * Add an action or filter to the data constant.
@@ -38,12 +71,12 @@ fs.writeFileSync( 'dist/filters.json', JSON.stringify( hooks.filters, null, 2 ),
 function addItem( file, itemData ) {
 
     let item = {};
-
     let type = getType( itemData );
 
     if ( type && itemData.tags ) {
 
         item.name = getName( type, itemData.code );
+        item.type = type;
 
         let info = getInfo( itemData );
 
@@ -57,19 +90,51 @@ function addItem( file, itemData ) {
 
         item.file = file.replace( 'src/', '' );
 
+        // item.raw = .map(() => trim(line))
+        let trimmedLines = '';
+        itemData.raw.split(/\r?\n/).forEach(function (elm, ind, arr){
+            const prefix = ind > 0 ? ' ' : '';
+            let content = elm.trim();
+            if (content === '*/') {
+                // Add a file tag
+                content = '*\n * @file ' + item.file.slice(3) + ':' + itemData.pos + "\n " + content;
+            }
+              trimmedLines += prefix + content + "\n";
+        })
+        item.raw = trimmedLines;
+        item.signature = getSignature(item);
+
+
         /*
          * Check for validity and add hook. A hook must have
          * at least a name and a summary.
          */
-        if ( item.name && item.summary ) {
-            hooks[ type ].push( item );
-        }
+         if ( item.name  ) { // && item.summary
+            return item;
+         }
     }
+    return null;
+}
 
+function getSignature(item) {
+    let signature = ''
+    switch (item.type) {
+        case 'action':
+            signature = 'add_action(\'' + item.name + '\',';
+            break;
+        case 'filter':
+            signature = 'add_filter(\'' + item.name + '\','
+            break;
+    }
+    item.params.forEach(function (param) {
+        signature += ' ' + param.name;
+    })
+    signature += ');'
+    return signature;
 }
 
 /**
- * Determine the item type, actions or filters.
+ * Determine the item type, action or filter.
  */
 function getType( itemData ) {
 
@@ -86,9 +151,9 @@ function getType( itemData ) {
         if ( code ) {
 
             if ( code.startsWith( 'do_action' ) ) {
-                type = 'actions';
+                type = 'action';
             } else if ( code.includes( 'apply_filters' ) ) {
-                type = 'filters';
+                type = 'filter';
             }
         }
     }
@@ -104,7 +169,7 @@ function getName( type, code ) {
 
     let name = '';
 
-    let start = 'filters' == type ? 'apply_filters(' : 'do_action(';
+    let start = 'filter' == type ? 'apply_filters(' : 'do_action(';
 
     code = code.replace( /\n/g, '' );
 
@@ -157,15 +222,12 @@ function getInfo( itemData ) {
     let rawData = itemData.raw;
 
     rawData = rawData.replace( /\t|\n/g, '' ); // Remove all the tabs and all line breaks; then we can rely on just where the asterix are.
-
+    rawData = rawData.replace(/\s\s+/g, ' '); // Clean up white-spaces.
     rawData = rawData.replace( '/** * ', '' ); // Remove the docBlock's starting code.
-
     rawData = rawData.replace( / \* /g, ' ' ); // Single line breaks should be treated as just normal spaces.
-
     rawData = rawData.split( ' * ' );
 
     let deleteStart = 0;
-
     for ( let i = 0; i < rawData.length; i++ ) {
         if ( rawData[ i ].charAt(0) == '@' ) {
             deleteStart = i;
@@ -176,11 +238,8 @@ function getInfo( itemData ) {
     rawData.splice( deleteStart );
 
     if ( rawData[0] ) {
-
         info.desc = rawData.splice(1).join( '\n\n' );
-
         info.summary = rawData[0];
-
     }
 
     return info;
