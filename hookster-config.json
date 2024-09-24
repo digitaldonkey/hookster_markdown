@@ -1,5 +1,5 @@
 {
-  "namespace": "ai1ec",
+  "namespace": "osec",
   "src": "../src/**/*.php"    ,
   "dest": "../hooks-and-filters.md"
 }

@@ -1,10 +1,11 @@
-const fs = require( 'fs' );
-const docblock = require( 'docblock' );
-const glob = require( 'glob-fs' )({ gitignore: false });
-const config = require( './hookster-config.json' );
+const fs = require('fs');
+const docblock = require('docblock');
+const glob = require('glob-fs')({gitignore: false});
+const config = require('./hookster-config.json');
 const json2md = require("json2md")
 
 const namespace = config.namespace; // All hook names must start with this.
+const isDebug = process.argv[2] === 'debug';
 
 const hooks = [];
 
@@ -12,20 +13,21 @@ const docBlockInstance = new docblock({
     skipMarkdown: true
 });
 
-const files = glob.readdirSync( config.src );
+const files = glob.readdirSync(config.src);
 
 // Output header
 const markdown = [];
-markdown.push({ h1: "Hooks and actions" });
-
+markdown.push({h1: 'Hooks and actions'});
+markdown.push({p: 'Only custom Osec ations and filters. There are other common WP filters like "the_title" applied. [Documentation examples](https://github.com/pronamic/wp-documentor/blob/main/tests/source/actions.php)'});
 
 // Process Files
-files.forEach( function( file ) {
-    let content = fs.readFileSync( file, 'utf8' );
-    let result = docBlockInstance.parse( content, 'js' ); // The docblock package will only parse parameters with the JavaScript rules.
+files.forEach(function (file) {
+    let content = fs.readFileSync(file, 'utf8');
+    // Docblock package will only parse parameters with the JavaScript rules.
+    let result = docBlockInstance.parse(content, 'js');
     let isFirstInFile = true;
-    result.forEach( function( itemData, ind ) {
-        const item = addItem( file, itemData );
+    result.forEach(function (itemData, ind) {
+        const item = addItem(file, itemData);
         if (item) {
             if (isFirstInFile) {
                 item.isFirstInFile = true;
@@ -33,90 +35,90 @@ files.forEach( function( file ) {
             }
             hooks.push(item)
         }
-    } );
-
-} );
+    });
+});
 
 
 // Make Markdown
 // @see https://www.npmjs.com/package/json2md
-hooks.forEach(function (item){
+hooks.forEach(function (item) {
     if (item.isFirstInFile) {
-        markdown.push({ p: '**' + item.file + '**' });
+        markdown.push({p: '**' + item.file + '**'});
+        if (isDebug) console.log({file: item.file});
     }
     markdown.push({
         h2: item.name
     });
-    markdown.push({ p: '**' + item.summary + '**' });
-    markdown.push({ p:  item.desc });
+    markdown.push({p: '**' + item.summary + '**'});
+    markdown.push({p: item.desc});
 
-    markdown.push( {
+    markdown.push({
         "code": {
             language: "php"
             , content: [item.raw + item.signature]
         }
     })
-    markdown.push({ p: '<small>Since: ' + item.since + '</small>'});
-
+    markdown.push({p: '<small>Since: ' + item.since + '</small>'});
 });
 
 // Done
-fs.writeFileSync(config.dest, json2md(markdown), 'utf8' );
-console.log(json2md(markdown));
-
+if (isDebug) console.log(json2md(markdown));
+fs.writeFileSync(config.dest, json2md(markdown), 'utf8');
 
 /**
  * Add an action or filter to the data constant.
  */
-function addItem( file, itemData ) {
+function addItem(file, itemData) {
 
     let item = {};
-    let type = getType( itemData );
+    item.file = file; // .replace( 'src/', '' );
 
-    if ( type && itemData.tags ) {
+    let type = getType(itemData);
 
-        item.name = getName( type, itemData.code );
+    if (type && itemData.tags) {
+
+        item.name = getName(type, itemData.code);
         item.type = type;
 
-        let info = getInfo( itemData );
+        let info = getInfo(itemData);
 
         item.summary = info.summary;
 
         item.desc = info.desc;
 
-        item.since = getSince( itemData );
-
-        item.params = getParams( itemData );
-
-        item.file = file.replace( 'src/', '' );
+        item.since = getSince(itemData);
 
         // item.raw = .map(() => trim(line))
         let trimmedLines = '';
-        itemData.raw.split(/\r?\n/).forEach(function (elm, ind, arr){
+        itemData.raw.split(/\r?\n/).forEach(function (elm, ind, arr) {
             const prefix = ind > 0 ? ' ' : '';
             let content = elm.trim();
             if (content === '*/') {
+                //  TODO:
+                //   Why itemData.pos is not the line number?
                 // Add a file tag
-                content = '*\n * @file ' + item.file.slice(3) + ':' + itemData.pos + "\n " + content;
+                content = '*\n * @file ' + item.file.slice(3) + '\n ' + content;
             }
-              trimmedLines += prefix + content + "\n";
+            trimmedLines += prefix + content + "\n";
         })
         item.raw = trimmedLines;
-        item.signature = getSignature(item);
+
+        item.params = getParams(item, itemData);
+        item.signature = getSignature(item, itemData);
 
 
         /*
          * Check for validity and add hook. A hook must have
          * at least a name and a summary.
          */
-         if ( item.name  ) { // && item.summary
+        if (item.name) { // && item.summary
             return item;
-         }
+        }
     }
     return null;
 }
 
-function getSignature(item) {
+function getSignature(item, itemData) {
     let signature = ''
     switch (item.type) {
         case 'action':
@@ -126,6 +128,7 @@ function getSignature(item) {
             signature = 'add_filter(\'' + item.name + '\','
             break;
     }
+
     item.params.forEach(function (param) {
         signature += ' ' + param.name;
     })
@@ -136,23 +139,23 @@ function getSignature(item) {
 /**
  * Determine the item type, action or filter.
  */
-function getType( itemData ) {
+function getType(itemData) {
 
     let type = '';
 
-    if ( itemData.code ) {
+    if (itemData.code) {
 
         let code = itemData.code;
 
-        code = code.split( '\n' );
+        code = code.split('\n');
 
         code = code[0];
 
-        if ( code ) {
+        if (code) {
 
-            if ( code.startsWith( 'do_action' ) ) {
+            if (code.startsWith('do_action')) {
                 type = 'action';
-            } else if ( code.includes( 'apply_filters' ) ) {
+            } else if (code.includes('apply_filters')) {
                 type = 'filter';
             }
         }
@@ -165,37 +168,37 @@ function getType( itemData ) {
 /**
  * Format a hook name.
  */
-function getName( type, code ) {
+function getName(type, code) {
 
     let name = '';
 
-    let start = 'filter' == type ? 'apply_filters(' : 'do_action(';
+    let start = 'filter' === type ? 'apply_filters(' : 'do_action(';
 
-    code = code.replace( /\n/g, '' );
+    code = code.replace(/\n/g, '');
 
     code = code.replace(/\s+/g, '');
 
-    code = code.replace( /['"]+/g, '' );
+    code = code.replace(/['"]+/g, '');
 
-    code = code.replace( /\)/g, ',)' );
+    code = code.replace(/\)/g, ',)');
 
     name = code.substring(
-        code.indexOf( start ) + start.length,
-        code.indexOf( ',' )
+        code.indexOf(start) + start.length,
+        code.indexOf(',')
     );
 
-    if ( name.includes( '.' ) ) {
+    if (name.includes('.')) {
 
-        name = name.split( '.' );
+        name = name.split('.');
 
-        if ( 3 == name.length ) {
+        if (3 == name.length) {
             name = name[0] + '{' + name[1] + '}' + name[2];
-        } else if ( 2 == name.length ) {
+        } else if (2 == name.length) {
             name = name[0] + '{' + name[1] + '}';
         }
     }
 
-    if ( ! name.startsWith( namespace ) ) {
+    if (!name.startsWith(namespace)) {
         return false;
     }
 
@@ -208,7 +211,7 @@ function getName( type, code ) {
  * raw data of the docBlock and return it in an
  * info object.
  */
-function getInfo( itemData ) {
+function getInfo(itemData) {
 
     let info = {
         summary: '',
@@ -221,74 +224,62 @@ function getInfo( itemData ) {
      */
     let rawData = itemData.raw;
 
-    rawData = rawData.replace( /\t|\n/g, '' ); // Remove all the tabs and all line breaks; then we can rely on just where the asterix are.
+    rawData = rawData.replace(/\t|\n/g, ''); // Remove all the tabs and all line
+                                             // breaks; then we can rely on just
+                                             // where the asterix are.
     rawData = rawData.replace(/\s\s+/g, ' '); // Clean up white-spaces.
-    rawData = rawData.replace( '/** * ', '' ); // Remove the docBlock's starting code.
-    rawData = rawData.replace( / \* /g, ' ' ); // Single line breaks should be treated as just normal spaces.
-    rawData = rawData.split( ' * ' );
+    rawData = rawData.replace('/** * ', ''); // Remove the docBlock's starting
+                                             // code.
+    rawData = rawData.replace(/ \* /g, ' '); // Single line breaks should be
+                                             // treated as just normal spaces.
+    rawData = rawData.split(' * ');
 
     let deleteStart = 0;
-    for ( let i = 0; i < rawData.length; i++ ) {
-        if ( rawData[ i ].charAt(0) == '@' ) {
+    for (let i = 0; i < rawData.length; i++) {
+        if (rawData[i].charAt(0) == '@') {
             deleteStart = i;
             break;
         }
     }
 
-    rawData.splice( deleteStart );
+    rawData.splice(deleteStart);
 
-    if ( rawData[0] ) {
-        info.desc = rawData.splice(1).join( '\n\n' );
+    if (rawData[0]) {
+        info.desc = rawData.splice(1).join('\n\n');
         info.summary = rawData[0];
     }
-
     return info;
-
 }
 
 /**
  * Format a hook's since version number.
  */
-function getSince( itemData ) {
-
+function getSince(itemData) {
     let since = '';
-
-    if ( itemData.tags.since ) {
-
-        since = itemData.tags.since.replace( 'Theme_Blvd', 'Theme Blvd Framework' );
-
-        since = since.replace( 'Jump_Start', 'Jump Start' );
-
+    if (itemData.tags.since) {
+        since = itemData.tags.since.replace('Theme_Blvd', 'Theme Blvd Framework');
+        since = since.replace('Jump_Start', 'Jump Start');
     }
-
     return since;
-
 }
 
 /**
  * Format hook parameters.
  *
- * This gets a bit funky because in order for the
- * docblock npm plugin to parse the parameters correctly,
- * we have to tell it that it's parsing JavaScript, when
- * we're actually parsing PHP.
- *
- * And then because of this, the object is pretty messed up
- * and we have to parse it out and flip things around the
- * way we want.
+ * Reimplemented by parsing source.
  *
  * @TODO A current problem is that array descriptions and
  * inner items do not get parsed. We may need to adjust
  * how our docblock array values are formatted, which will
  * stray from WordPress.
  */
-function getParams( itemData ) {
-
+function getParams(item) {
     let params = [];
+    let count = 1;
 
-    if ( itemData.tags.params ) {
-
-        itemData.tags.params.forEach( function( input ) {
+    // Find @param lines
+    item.raw.split('\n').forEach((line, ind) => {
+        if (line.indexOf('@param') > -1) {
 
             let output = {
                 name: '',
@@ -296,33 +287,26 @@ function getParams( itemData ) {
                 description: ''
             };
 
-            if ( input.name ) { // docblock plugin puts our type inside the name.
-                output.type = input.name;
+            // Evaluate raw line
+            // @see https://regex101.com/r/LLSG7H/2
+            const regexp = /(?<type>[\\a-zA-Z0-9_]*)\s(?<name>\$[a-zA-Z0-9_]*)[\h]*(?<description>[^\n]*)/g;
+            let match = regexp.exec(line);
+            if (match) {
+                const output = {
+                    name: match.groups.name,
+                    type: match.groups.type.replace('\\\\', '\\'),
+                    description: match.groups.description.trim()
+                };
+                if (isDebug) console.log('param ' + count + " -> ", {input: line, output});
+                params.push(output)
+                count++;
+            } else {
+                console.error({
+                    line
+                });
             }
-
-            if ( 0 === input.description.indexOf( '$' ) ) {
-                output.name = input.description.substring(
-                    input.description.indexOf( '$' ),
-                    input.description.indexOf( ' ' )
-                );
-            }
-
-            output.description = input.description;
-
-            if ( output.name ) {
-                output.description = output.description.replace( output.name, '' );
-            }
-
-            output.description = output.description.replace( ' {', '' );
-
-            output.description = output.description.trim();
-
-            params.push( output );
-
-        } );
-
-    }
-
+        }
+    });
     return params;
 
 }
