@@ -4,7 +4,7 @@ Hookster is a tool to automatically extract data about the actions and filters o
 
 ## About This Project
 
-This is a fork of hookster allowing to document WordPress hooks. You can create a Marksown file from phpdoc documented hooks.
+This is a fork of hookster allowing to document WordPress hooks. You can create a Markdown file from phpdoc documented hooks.
 
 ## Prerequisites
 
