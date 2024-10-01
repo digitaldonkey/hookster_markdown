@@ -1,8 +1,6 @@
-# Hookster
+# Hookster Markdown
 
-Hookster is a tool to automatically extract data about the actions and filters of your WordPress theme or plugin. You can use this data in any way you like... For example, you might use the data to create a developer documentation website.
-
-Here's the gist of how this project works &mdash; Drop your WordPress theme or plugin files into the `src` directory, run `npm run build` in your terminal, and get back the files `actions.json` and `filters.json` with data about your hooks.
+Hookster is a tool to automatically extract data about the actions and filters of your WordPress theme or plugin. You can to create a developer documentation Markdown document describing all documented hooks in your code base. 
 
 ## About This Project
 
