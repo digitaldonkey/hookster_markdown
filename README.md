@@ -6,9 +6,7 @@ Here's the gist of how this project works &mdash; Drop your WordPress theme or p
 
 ## About This Project
 
-The motivation here was to generate the data needed to create a developer documentation website for the [Jump Start](https://wpjumpstart.com) WordPress theme. A reference of all of the available actions and filters has been a popular request from child theme developers for years. However, with a growing library of 500+ hooks, manually creating and maintaining this would be a nightmare.
-
-So this project aims to automate the process of generating this data. Hopefully this tool can be used not only for Jump Start, but for your themes and plugins, as well.
+This is a fork of hookster allowing to document WordPress hooks. You can create a Marksown file from phpdoc documented hooks.
 
 ## Prerequisites
 
@@ -59,72 +57,70 @@ $something = apply_filters( 'my_plugin_modify_something', $foo, $bar );
 
 ## About the Data Generated
 
-The data generated within your `actions.json` and `filters.json` files will include an object for each hook with the following data.
+Resulting Markdown can be adapted easily in build.js. 
 
-* `name`: *{String}* Name of the hook, like `my_plugin_do_something`.
-* `summary`: *{String}* First paragraph of the docBlock.
-* `desc`: *{String}* Remaining paragraphs of the description, after the summary. Paragraphs are separated with `\n\n`.
-* `since`: *{String}* Version number the hook was added to your theme or plugin, pulled from the `@since` tag of the docBlock.
-* `params`: *{Array}* Parameters passed to the hook.
-* `file`: *{String}* File in your plugin or theme, where the hook exists.
+Output looks like the following example
 
-Here's an example of what the raw JSON data will look like:
+---
 
-``` json
-...
-{
-  "name": "themeblvd_icon_browser_value",
-  "summary": "Filters the value to be inserted for an icon in the icon browser.",
-  "desc": "By default, this value will be structured with a Font Awesome style class and icon class, like `fas fa-user`.",
-  "since": "2.7.4",
-  "params": [
-    {
-      "name": "$icon_value",
-      "type": "string",
-      "description": "Icon value."
-    },
-    {
-      "name": "$icon",
-      "type": "string",
-      "description": "Icon name."
-    },
-    {
-      "name": "$prefix",
-      "type": "string",
-      "description": "Style class, like `fas`."
-    },
-    {
-      "name": "$type",
-      "type": "string",
-      "description": "Style type, like `solid`."
-    }
-  ],
-  "file": "framework/admin/functions/display.php"
-},
-...
+
+@file **../src/App/Controller/DatabaseController.php**
+
+### osec_dbi_debug <span style="text-transform: uppercase; font-size: small; color: darkgray"> filter</span>
+
+
+Filter if debug mode should really be enabled [sic!]
+
+```php
+add_filter('osec_dbi_debug', $do_debug);
 ```
 
-The above data was generated from this PHP code:
+#### Description
 
-``` php
+
+Only attempt to enable debug after all add-ons are loaded.
+
+
+
+Overriding OSEC_DEBUG in Ajax context. Used to disable debug an XHR requests as debug output would crash Json. @wp_hook ai1ec_loaded
+
+#### Parameters
+
+
+- **$do_debug** <span style="color:crimson"> bool</span> Debug or not.
+
+<details markdown="1">
+<summary>Source</summary>
+
+
+```php
 /**
- * Filters the value to be inserted for an icon in the
- * icon browser.
+ * Filter if debug mode should really be enabled [sic!]
  *
- * By default, this value will be structured with a Font
- * Awesome style class and icon class, like `fas fa-user`.
+ * Only attempt to enable debug after all add-ons are loaded.
  *
- * @since 2.7.4
+ * Overriding OSEC_DEBUG in Ajax context.
+ *  Used to disable debug an XHR requests as debug output would crash Json.
+ * @wp_hook ai1ec_loaded
  *
- * @param string $icon_value Icon value.
- * @param string $icon       Icon name.
- * @param string $prefix     Style class, like `fas`.
- * @param string $type       Style type, like `solid`.
+ * @since 1.0
+ *
+ * @param bool $do_debug Debug or not.
+ *
+ *
+ * @file src/App/Controller/DatabaseController.php
  */
-$icon_value = apply_filters( 'themeblvd_icon_browser_value', $icon_value, $icon, $prefix, $type );
+add_filter('osec_dbi_debug', $do_debug);
 ```
+
+</details>
+
 
 ## Creator
+
+Markdown Version by digitaldonkey.
+
+Originally brought to this world by 
 
 **Jason Bobich**
 
