@@ -13,7 +13,22 @@ const docBlockInstance = new docblock({
     skipMarkdown: true
 });
 
-const files = glob.readdirSync(config.src);
+const files = [];
+config.src.forEach((glob_pattern) => {
+    glob.readdirSync(glob_pattern).forEach((f)=>{
+        files.push(f)
+    });
+
+})
+// const files = glob.readdirSync(config.src);
+
+json2md.converters.detailsOpen = function (input, json2md) {
+    return  '<details markdown="1">\n' +
+        '<summary>Source</summary>\n';
+}
+json2md.converters.detailsClose = function (input, json2md) {
+    return  '</details>\n';
+}
 
 // Output header
 const markdown = [];
@@ -41,28 +56,52 @@ files.forEach(function (file) {
 
 // Make Markdown
 // @see https://www.npmjs.com/package/json2md
-hooks.forEach(function (item) {
+hooks.forEach(function (item, index) {
     if (item.isFirstInFile) {
-        markdown.push({p: '**' + item.file + '**'});
+        markdown.push({hr: ''})
+        markdown.push({p: '@file **' + item.file + '**'});
         if (isDebug) console.log({file: item.file});
     }
     markdown.push({
-        h2: item.name
+        h3: item.name + ' <span style="text-transform: uppercase; font-size: small; color: darkgray"> ' + item.type + '</span>'
     });
-    markdown.push({p: '**' + item.summary + '**'});
-    markdown.push({p: item.desc});
-
+    // markdown.push({p: '<span style="text-transform: uppercase; font-size: small"> ' + item.type + '</span> ' });
+    markdown.push({p: item.summary });
+    markdown.push({
+        "code": {
+            language: "php"
+            , content: [item.signature]
+        }
+    })
+    if (item.desc) {
+        markdown.push({
+            h4: 'Description'
+        });
+        markdown.push({p: item.desc});
+    }
+    markdown.push({
+        h4: 'Parameters'
+    });
+    const params = [];
+    item.params.forEach((param) => {
+        params.push(
+            '**' + param.name + '** <span style="color:crimson"> ' + param.type + '</span> '
+            + param.description
+        )
+    })
+    markdown.push({ ul: params});
+    markdown.push({detailsOpen: ''});
     markdown.push({
         "code": {
             language: "php"
             , content: [item.raw + item.signature]
         }
     })
-    markdown.push({p: '<small>Since: ' + item.since + '</small>'});
+    markdown.push({detailsClose: ''});
 });
 
 // Done
-if (isDebug) console.log(json2md(markdown));
+// if (isDebug) console.log(json2md(markdown));
 fs.writeFileSync(config.dest, json2md(markdown), 'utf8');
 
 /**
@@ -88,7 +127,6 @@ function addItem(file, itemData) {
 
         item.since = getSince(itemData);
 
-        // item.raw = .map(() => trim(line))
         let trimmedLines = '';
         itemData.raw.split(/\r?\n/).forEach(function (elm, ind, arr) {
             const prefix = ind > 0 ? ' ' : '';
@@ -122,7 +160,7 @@ function getSignature(item, itemData) {
     let signature = ''
     switch (item.type) {
         case 'action':
-            signature = 'add_action(\'' + item.name + '\',';
+            signature = 'do_action(\'' + item.name + '\',';
             break;
         case 'filter':
             signature = 'add_filter(\'' + item.name + '\','
@@ -289,7 +327,7 @@ function getParams(item) {
 
             // Evaluate raw line
             // @see https://regex101.com/r/LLSG7H/2
-            const regexp = /(?<type>[\\a-zA-Z0-9_]*)\s(?<name>\$[a-zA-Z0-9_]*)[\h]*(?<description>[^\n]*)/g;
+            const regexp = /(?<type>[\\\[\]a-zA-Z0-9_]*)\s(?<name>\$[a-zA-Z0-9_]*)[\h]*(?<description>[^\n]*)/g;
             let match = regexp.exec(line);
             if (match) {
                 const output = {
@@ -297,16 +335,17 @@ function getParams(item) {
                     type: match.groups.type.replace('\\\\', '\\'),
                     description: match.groups.description.trim()
                 };
-                if (isDebug) console.log('param ' + count + " -> ", {input: line, output});
+                // if (isDebug) console.log('param ' + count + " -> ", {input: line, output});
                 params.push(output)
                 count++;
             } else {
                 console.error({
-                    line
+                    error: 'Can not parse line at file',
+                    line,
+                    file: item.file
                 });
             }
         }
     });
     return params;
-
 }

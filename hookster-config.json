@@ -1,5 +1,8 @@
 {
   "namespace": "osec",
-  "src": "../src/**/*.php"    ,
+  "src": [
+    "../src/**/*.php",
+    "../public/admin/**/*.php"
+  ]    ,
   "dest": "../hooks-and-filters.md"
 }
