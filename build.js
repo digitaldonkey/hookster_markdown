@@ -101,7 +101,7 @@ hooks.forEach(function (item, index) {
 });
 
 // Done
-// if (isDebug) console.log(json2md(markdown));
+if (isDebug) console.log(json2md(markdown));
 fs.writeFileSync(config.dest, json2md(markdown), 'utf8');
 
 /**
