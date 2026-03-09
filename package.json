@@ -13,6 +13,6 @@
 	"json2md": "^2.0.1"
   },
   "scripts": {
-    "build": "node build.js"
+    "build-hooks-and-filters": "node build.js"
   }
 }
