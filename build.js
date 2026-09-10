@@ -6,6 +6,7 @@ const json2md = require("json2md")
 
 const namespace = config.namespace; // All hook names must start with this.
 const isDebug = process.argv[2] === 'debug';
+const isCheck = process.argv[2] === 'check';
 
 const hooks = [];
 
@@ -104,8 +105,20 @@ hooks.forEach(function (item, index) {
 });
 
 // Done
-if (isDebug) console.log(json2md(markdown));
-fs.writeFileSync(config.dest, json2md(markdown), 'utf8');
+const output = json2md(markdown);
+if (isDebug) console.log(output);
+
+if (isCheck) {
+    const current = fs.existsSync(config.dest) ? fs.readFileSync(config.dest, 'utf8') : '';
+    if (current === output) {
+        console.log(config.dest + ' is up to date.');
+        process.exit(0);
+    }
+    console.error(config.dest + ' is out of date. Run: cd hookster_markdown && npm run build-hooks-and-filters');
+    process.exit(1);
+}
+
+fs.writeFileSync(config.dest, output, 'utf8');
 
 /**
  * Add an action or filter to the data constant.
